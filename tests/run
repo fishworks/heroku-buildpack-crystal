@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+testDetectShardBasic()
+{
+  detect "shard-basic"
+  assertCaptured "Crystal"
+  assertCapturedSuccess
+}
+
+testCompileShardBasic()
+{
+  compile "shard-basic"
+  assertCaptured "Installing crystal-0.20.1"
+  assertCaptured "Installing shards-0.7.1"
+  # `shards check` currently does not work with apps with no external dependencies.
+  # See https://github.com/crystal-lang/shards/issues/145
+  # TODO(bacongobbler): re-test this once shards v0.8.0 is out
+  # assertCaptured "Checking project with \`shards check\`"
+  assertCaptured "Running \`shards install\`"
+  assertCaptured "Running \`shards build heroku\`"
+  assertCapturedSuccess
+  assertCompiledBinaryExists
+}
+
+testReleaseShardBasic()
+{
+  release "shard-basic"
+  assertCaptured "--- {}"
+  assertCapturedSuccess
+}
+
+# Utils
+source $(pwd)/tests/utils
+
+compile_dir=""
+
+mktmpdir()
+{
+  dir=$(mktemp -t testXXXXX)
+  rm -rf $dir
+  mkdir $dir
+  echo $dir
+}
+
+default_process_types_cleanup()
+{
+  file="/tmp/default_process_types"
+  if [ -f "$file" ]; then
+    rm "$file"
+  fi
+}
+
+detect()
+{
+  capture $(pwd)/bin/detect $(pwd)/tests/fixtures/$1
+}
+
+compile()
+{
+  default_process_types_cleanup
+  bp_dir=$(mktmpdir)
+  compile_dir=$(mktmpdir)
+  cp -a $(pwd)/* ${bp_dir}
+  cp -a ${bp_dir}/tests/fixtures/$1/. ${compile_dir}
+  capture ${bp_dir}/bin/compile ${compile_dir} ${2:-$(mktmpdir)} $3
+}
+
+release()
+{
+  bp_dir=$(mktmpdir)
+  cp -a $(pwd)/* ${bp_dir}
+  capture ${bp_dir}/bin/release ${bp_dir}/tests/fixtures/$1
+}
+
+source $(pwd)/tests/shunit2
